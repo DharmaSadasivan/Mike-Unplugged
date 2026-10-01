@@ -8,6 +8,19 @@ Licensed AGPL-3.0, the same as upstream.
 
 ---
 
+## Lineage and credits
+
+Mike Unplugged builds on three earlier projects. All credit to their authors.
+
+**Mike (willchen96) → mike-oss (mikeOnBreeze) → mike-local (hamiltonmidway) → Mike-Unplugged (DharmaSadasivan)**
+
+1. **[Mike](https://github.com/willchen96/mike)** by Will Chen (willchen96). The original open-source legal AI platform, built as an alternative to Harvey. See [mikeoss.com](https://mikeoss.com/) and [this interview](https://www.artificiallawyer.com/2026/05/04/mike-the-open-source-legal-ai-platform-will-chen-interview/).
+2. **[mike-oss](https://github.com/mikeOnBreeze/mike-oss)** by Mike Brown (mikeOnBreeze). Replaced the cloud services (Supabase Postgres, Supabase Auth, Cloudflare R2) with a local JSON file and the local file system.
+3. **[mike-local](https://github.com/hamiltonmidway/mike-local)** by hamiltonmidway. Added offline chat through Ollama with a fixed list of models.
+4. **Mike-Unplugged** by DharmaSadasivan (this fork). Replaces the fixed list with a scan of your computer, and adds LM Studio, llama.cpp, Jan, vLLM and other OpenAI-compatible apps.
+
+---
+
 ## What is different in this fork
 
 The first table shows how Mike Unplugged differs from the original Mike by Will Chen. The second table shows how Mike Unplugged differs from the mike-local fork by hamiltonmidway, which formed the basis of Mike Unplugged.
@@ -137,16 +150,5 @@ npm run lint --prefix frontend
 - Frontend: `frontend/src/app/components/models/LocalModelScanModal.tsx` (scan window) and `frontend/src/app/lib/modelCatalog.ts` (the list of models the user can pick).
 
 ---
-
-## Lineage and credits
-
-Mike Unplugged builds on three earlier projects. All credit to their authors.
-
-**Mike (willchen96) → mike-oss (mikeOnBreeze) → mike-local (hamiltonmidway) → Mike-Unplugged (DharmaSadasivan)**
-
-1. **[Mike](https://github.com/willchen96/mike)** by Will Chen (willchen96). The original open-source legal AI platform, built as an alternative to Harvey. See [mikeoss.com](https://mikeoss.com/) and [this interview](https://www.artificiallawyer.com/2026/05/04/mike-the-open-source-legal-ai-platform-will-chen-interview/).
-2. **[mike-oss](https://github.com/mikeOnBreeze/mike-oss)** by Mike Brown (mikeOnBreeze). Replaced the cloud services (Supabase Postgres, Supabase Auth, Cloudflare R2) with a local JSON file and the local file system.
-3. **[mike-local](https://github.com/hamiltonmidway/mike-local)** by hamiltonmidway. Added offline chat through Ollama with a fixed list of models.
-4. **Mike-Unplugged** by DharmaSadasivan (this fork). Replaces the fixed list with a scan of your computer, and adds LM Studio, llama.cpp, Jan, vLLM and other OpenAI-compatible apps.
 
 AI output can be wrong. Answers are not legal advice. Check important results yourself.
