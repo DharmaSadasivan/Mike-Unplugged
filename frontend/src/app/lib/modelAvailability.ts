@@ -1,15 +1,14 @@
-import { MODELS, type ModelOption } from "../components/assistant/ModelToggle";
+import { CLOUD_MODELS, type ModelGroup } from "./modelCatalog";
+import { isLocalModelId } from "./localModels";
 
-// 1. Add "ollama" to the allowed provider types
-export type ModelProvider = "claude" | "gemini" | "ollama";
+// "local" = any model the user enabled from their own computer.
+export type ModelProvider = "claude" | "gemini" | "local";
 
 export function getModelProvider(modelId: string): ModelProvider | null {
-    const model = MODELS.find((m) => m.id === modelId);
+    if (isLocalModelId(modelId)) return "local";
+    const model = CLOUD_MODELS.find((m) => m.id === modelId);
     if (!model) return null;
-    // Explicitly check for each group now that we have three
-    if (model.group === "Anthropic") return "claude";
-    if (model.group === "Google") return "gemini";
-    return "ollama";
+    return model.group === "Google" ? "gemini" : "claude";
 }
 
 export function isModelAvailable(
@@ -18,8 +17,8 @@ export function isModelAvailable(
 ): boolean {
     const provider = getModelProvider(modelId);
     if (!provider) return false;
-    // Ollama is local, so it is always available without an external API key
-    if (provider === "claude" || provider === "ollama") return true;
+    // Local models need no key. Claude can use the server's .env key.
+    if (provider === "claude" || provider === "local") return true;
     return !!apiKeys.geminiApiKey?.trim();
 }
 
@@ -27,20 +26,18 @@ export function isProviderAvailable(
     provider: ModelProvider,
     apiKeys: { claudeApiKey: string | null; geminiApiKey: string | null },
 ): boolean {
-    if (provider === "claude" || provider === "ollama") return true;
+    if (provider === "claude" || provider === "local") return true;
     return !!apiKeys.geminiApiKey?.trim();
 }
 
 export function providerLabel(provider: ModelProvider): string {
     if (provider === "claude") return "Anthropic (Claude)";
     if (provider === "gemini") return "Google (Gemini)";
-    return "Ollama (Local)";
+    return "Local model";
 }
 
-export function modelGroupToProvider(
-    group: ModelOption["group"],
-): ModelProvider {
+export function modelGroupToProvider(group: ModelGroup): ModelProvider {
     if (group === "Anthropic") return "claude";
     if (group === "Google") return "gemini";
-    return "ollama";
+    return "local";
 }

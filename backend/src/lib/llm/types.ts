@@ -2,8 +2,9 @@
 // Callers always speak OpenAI-style tools + { role, content } messages; each
 // provider translates internally.
 
-// NOTE ---> Add "ollama" to the allowed backend provider types
-export type Provider = "claude" | "gemini" | "ollama";
+// "local" covers every model the user enabled from a local runtime
+// (Ollama, LM Studio, llama.cpp, Jan, vLLM, ...). See localModels.ts.
+export type Provider = "claude" | "gemini" | "local";
 
 export type OpenAIToolSchema = {
     type: "function";

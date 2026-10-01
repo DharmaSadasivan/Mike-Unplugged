@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertCircle, Check, ChevronDown, Eye, EyeOff } from "lucide-react";
+import {
+    AlertCircle,
+    Check,
+    ChevronDown,
+    Cpu,
+    Eye,
+    EyeOff,
+    Search,
+    X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,17 +22,25 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useUserProfile } from "@/contexts/UserProfileContext";
-import { MODELS } from "@/app/components/assistant/ModelToggle";
 import {
     isModelAvailable,
     modelGroupToProvider,
 } from "@/app/lib/modelAvailability";
+import {
+    GROUP_LABELS,
+    GROUP_ORDER,
+    useModelOptions,
+} from "@/app/lib/modelCatalog";
+import { describeLocalModel } from "@/app/lib/localModels";
+import { LocalModelScanModal } from "@/app/components/models/LocalModelScanModal";
 
 export default function ModelsAndApiKeysPage() {
     const { profile, updateModelPreference, updateApiKey } = useUserProfile();
 
     return (
         <div className="space-y-4">
+            <LocalModelsSection />
+
             {/* Model Preferences */}
             <div className="pb-6">
                 <div className="flex items-center gap-2 mb-4">
@@ -61,13 +78,14 @@ export default function ModelsAndApiKeysPage() {
                     </h2>
                 </div>
                 <p className="text-sm text-gray-500 mb-4 max-w-xl">
-                    You must provide your own API keys for the app to work or
-                    add your API keys into the .env file if you are running your
-                    own instance of Mike.
+                    API keys are optional. You only need them if you want to
+                    use cloud models (Claude or Gemini). With local models
+                    only, leave these empty.
                 </p>
                 <p className="text-xs text-gray-400 mb-4 max-w-xl">
-                    Title generation uses Claude Haiku by default. Gemini is
-                    still available if you add a Google key.
+                    Chat titles use Gemini Flash Lite or Claude Haiku when you
+                    add a key. With no keys, Mike uses your first enabled local
+                    model.
                 </p>
                 <div className="space-y-4 max-w-xl">
                     <ApiKeyField
@@ -92,6 +110,79 @@ export default function ModelsAndApiKeysPage() {
     );
 }
 
+function LocalModelsSection() {
+    const { profile, updateEnabledLocalModels } = useUserProfile();
+    const [scanOpen, setScanOpen] = useState(false);
+    const models = profile?.enabledLocalModels ?? [];
+
+    const removeModel = async (id: string) => {
+        const ok = await updateEnabledLocalModels(
+            models.filter((m) => m.id !== id),
+        );
+        if (!ok) alert("Could not remove the model.");
+    };
+
+    return (
+        <div className="pb-6">
+            <div className="flex items-center justify-between gap-2 mb-2 max-w-xl">
+                <h2 className="text-2xl font-medium font-serif">Local Models</h2>
+                <Button
+                    onClick={() => setScanOpen(true)}
+                    className="bg-black hover:bg-gray-900 text-white"
+                >
+                    <Search className="h-4 w-4" />
+                    Scan this computer
+                </Button>
+            </div>
+            <p className="text-sm text-gray-500 mb-4 max-w-xl">
+                Use models that run on your own computer. Nothing you type
+                leaves this machine. Mike finds models in Ollama, LM Studio,
+                llama.cpp, Jan, vLLM and other OpenAI-compatible apps. Start
+                your model app, then click Scan this computer.
+            </p>
+            {models.length === 0 ? (
+                <div className="max-w-xl rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500">
+                    No local models enabled yet.
+                </div>
+            ) : (
+                <ul className="max-w-xl divide-y divide-gray-100 rounded-lg border border-gray-200">
+                    {models.map((m) => {
+                        const detail = describeLocalModel(m);
+                        return (
+                            <li
+                                key={m.id}
+                                className="flex items-center gap-3 px-3 py-2"
+                            >
+                                <Cpu className="h-4 w-4 shrink-0 text-gray-400" />
+                                <span className="flex-1 min-w-0">
+                                    <span className="block text-sm text-gray-900 truncate">
+                                        {m.label}
+                                        <span className="ml-1.5 text-[11px] text-gray-400">
+                                            {m.sourceLabel}
+                                        </span>
+                                    </span>
+                                    <span className="block text-[11px] text-gray-400 truncate">
+                                        {[detail, m.baseUrl].filter(Boolean).join(" · ")}
+                                    </span>
+                                </span>
+                                <button
+                                    onClick={() => void removeModel(m.id)}
+                                    className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                                    aria-label={`Disable ${m.label}`}
+                                    title="Disable this model"
+                                >
+                                    <X className="h-4 w-4" />
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+            <LocalModelScanModal open={scanOpen} onClose={() => setScanOpen(false)} />
+        </div>
+    );
+}
+
 function TabularModelDropdown({
     value,
     onChange,
@@ -102,10 +193,9 @@ function TabularModelDropdown({
     apiKeys: { claudeApiKey: string | null; geminiApiKey: string | null };
 }) {
     const [isOpen, setIsOpen] = useState(false);
-    const selected = MODELS.find((m) => m.id === value);
+    const { options } = useModelOptions();
+    const selected = options.find((m) => m.id === value);
     const selectedAvailable = isModelAvailable(value, apiKeys);
-    // Add "Ollama" to the allowed groups array
-    const groups: ("Anthropic" | "Google" | "Ollama")[] = ["Anthropic", "Google", "Ollama"];
 
     return (
         <DropdownMenu onOpenChange={setIsOpen}>
@@ -132,14 +222,14 @@ function TabularModelDropdown({
                 style={{ width: "var(--radix-dropdown-menu-trigger-width)" }}
                 align="start"
             >
-                {groups.map((group, gi) => {
-                    const items = MODELS.filter((m) => m.group === group);
+                {GROUP_ORDER.map((group, gi) => {
+                    const items = options.filter((m) => m.group === group);
                     if (items.length === 0) return null;
                     return (
                         <div key={group}>
                             {gi > 0 && <DropdownMenuSeparator />}
                             <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-gray-400">
-                                {group}
+                                {GROUP_LABELS[group]}
                             </DropdownMenuLabel>
                             {items.map((m) => {
                                 const provider = modelGroupToProvider(m.group);
@@ -162,6 +252,11 @@ function TabularModelDropdown({
                                             className={`flex-1 ${available ? "" : "text-gray-400"}`}
                                         >
                                             {m.label}
+                                            {m.detail && (
+                                                <span className="ml-1.5 text-[11px] text-gray-400">
+                                                    {m.detail}
+                                                </span>
+                                            )}
                                         </span>
                                         {!available && (
                                             <AlertCircle className="h-3.5 w-3.5 text-red-500 ml-1" />

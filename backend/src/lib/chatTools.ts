@@ -17,6 +17,7 @@ import { attachActiveVersionPaths, loadActiveVersion } from "./documentVersions"
 import {
     streamChatWithTools,
     resolveModel,
+    isLocalModelId,
     DEFAULT_MAIN_MODEL,
     type LlmMessage,
     type OpenAIToolSchema,
@@ -2321,11 +2322,13 @@ export async function runLLMStream(params: {
 
 // Guardrail: If running a local model, restrict the toolbelt to read-only tools 
 // so it doesn't mistakenly try to edit files when a clause is missing.
-const isLocalModel = model.startsWith("llama") || model.startsWith("gemma") || model.includes("ollama");
+// Any model the user enabled from their own computer has an id starting "local:".
+const isLocalModel = isLocalModelId(model);
 if (isLocalModel) {
-    activeTools = activeTools.filter(t => 
-        t.function.name === "read_document" || t.function.name === "find_in_document"
-    );
+    activeTools = activeTools.filter((t) => {
+        const name = (t as { function?: { name?: string } }).function?.name;
+        return name === "read_document" || name === "find_in_document";
+    });
 }
 
     // Extract system prompt; pass remaining turns to the adapter as

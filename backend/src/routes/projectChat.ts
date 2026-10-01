@@ -188,8 +188,16 @@ projectChatRouter.post("/", requireAuth, async (req, res) => {
     } catch (err) {
         console.error("[project-chat/stream] error:", err);
         try {
+            // Local model problems (server not running, model removed) are
+            // fixable by the user, so show the reason in the chat itself.
+            const reason = err instanceof Error ? err.message : "";
+            if (/local model server/i.test(reason)) {
+                write(
+                    `data: ${JSON.stringify({ type: "content_delta", text: `\n\n**Local model problem:** ${reason}` })}\n\n`,
+                );
+            }
             write(
-                `data: ${JSON.stringify({ type: "error", message: "Stream error" })}\n\n`,
+                `data: ${JSON.stringify({ type: "error", message: reason || "Stream error" })}\n\n`,
             );
             write("data: [DONE]\n\n");
         } catch {

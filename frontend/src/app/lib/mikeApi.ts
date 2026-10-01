@@ -4,6 +4,11 @@
  */
 
 import { supabase } from "@/lib/supabase";
+import {
+    toStoredLocalModel,
+    type LocalModel,
+    type LocalScanResult,
+} from "@/app/lib/localModels";
 import type {
     AssistantEvent,
     MikeChat,
@@ -814,4 +819,38 @@ export async function deleteWorkflowShare(
     await apiRequest(`/workflows/${workflowId}/shares/${shareId}`, {
         method: "DELETE",
     });
+}
+
+// ---------------------------------------------------------------------------
+// Local models (scan this computer, enable/disable)
+// ---------------------------------------------------------------------------
+
+export async function scanLocalModels(
+    extraAddress?: string,
+): Promise<LocalScanResult> {
+    const q = extraAddress?.trim()
+        ? `?extra=${encodeURIComponent(extraAddress.trim())}`
+        : "";
+    return apiRequest<LocalScanResult>(`/local-models/scan${q}`);
+}
+
+export async function getEnabledLocalModels(): Promise<LocalModel[]> {
+    const res = await apiRequest<{ models: LocalModel[] }>(
+        "/local-models/enabled",
+    );
+    return res.models ?? [];
+}
+
+export async function saveEnabledLocalModels(
+    models: LocalModel[],
+): Promise<LocalModel[]> {
+    const res = await apiRequest<{ models: LocalModel[] }>(
+        "/local-models/enabled",
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ models: models.map(toStoredLocalModel) }),
+        },
+    );
+    return res.models ?? [];
 }

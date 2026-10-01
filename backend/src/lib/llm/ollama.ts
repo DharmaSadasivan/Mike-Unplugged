@@ -3,8 +3,19 @@ import type {
     StreamChatResult,
     NormalizedToolCall,
 } from "./types";
+import { stripThinkTags } from "./openaiCompatible";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+/** Where to send an Ollama request. Built from the local model registry. */
+export type OllamaTarget = {
+    baseUrl: string;
+    model: string;
+    /** false = never send tools; null/true = try, and fall back if refused. */
+    supportsTools: boolean | null;
+};
+
+function isToolsRejected(status: number, body: string): boolean {
+    return status === 400 && /does not support tools|tool/i.test(body);
+}
 
 type OllamaMessage = {
     role: "system" | "user" | "assistant" | "tool";
@@ -14,14 +25,11 @@ type OllamaMessage = {
 
 export async function streamOllama(
     params: StreamChatParams,
+    target: OllamaTarget,
 ): Promise<StreamChatResult> {
-    const {
-        model,
-        systemPrompt,
-        tools = [],
-        callbacks = {},
-        runTools,
-    } = params;
+    const { systemPrompt, callbacks = {}, runTools } = params;
+    const { baseUrl, model } = target;
+    let tools = target.supportsTools === false ? [] : (params.tools ?? []);
     const maxIter = params.maxIterations ?? 10;
 
     // Build initial conversation history
@@ -39,16 +47,30 @@ export async function streamOllama(
     // Multi-turn iteration loop to handle tool execution rounds
     for (let iter = 0; iter < maxIter; iter++) {
         try {
-            const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    model: model,
-                    messages: nativeMessages,
-                    tools: tools.length ? tools : undefined, // Ollama accepts standard OpenAI tools
-                    stream: true,
-                }),
-            });
+            const send = () =>
+                fetch(`${baseUrl}/api/chat`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: nativeMessages,
+                        tools: tools.length ? tools : undefined, // Ollama accepts standard OpenAI tools
+                        stream: true,
+                    }),
+                });
+            let response = await send();
+
+            // Models without tool support (e.g. many small or reasoning-only
+            // models) answer 400. Carry on as plain chat instead of failing.
+            if (!response.ok && tools.length) {
+                const errorText = await response.text();
+                if (!isToolsRejected(response.status, errorText)) {
+                    throw new Error(`Ollama API error: ${response.statusText} - ${errorText}`);
+                }
+                console.warn(`[ollama:${model}] tools rejected, retrying without tools`);
+                tools = [];
+                response = await send();
+            }
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -186,35 +208,40 @@ export async function streamOllama(
     return { fullText };
 }
 
-export async function completeOllamaText(params: {
-    model: string;
-    systemPrompt?: string;
-    user: string;
-    maxTokens?: number;
-}): Promise<string> {
+export async function completeOllamaText(
+    params: {
+        systemPrompt?: string;
+        user: string;
+        maxTokens?: number;
+    },
+    target: OllamaTarget,
+): Promise<string> {
     const formattedMessages = [];
     if (params.systemPrompt) {
         formattedMessages.push({ role: "system", content: params.systemPrompt });
     }
     formattedMessages.push({ role: "user", content: params.user });
 
-    try {
-        const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                model: params.model,
-                messages: formattedMessages,
-                stream: false,
-            }),
-        });
+    // Throw on failure so callers' error handling runs (instead of saving an
+    // error sentence as, say, a chat title).
+    const response = await fetch(`${target.baseUrl}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            model: target.model,
+            messages: formattedMessages,
+            // No token cap: reasoning models spend tokens "thinking" first,
+            // and a small cap would cut them off before the answer.
+            stream: false,
+        }),
+    });
 
-        if (!response.ok) return "Error generating text from local Ollama model.";
-
-        const data = await response.json();
-        return data.message?.content || "";
-    } catch (error) {
-        console.error("Ollama completion error:", error);
-        return "Failed to communicate with local Ollama.";
+    if (!response.ok) {
+        throw new Error(
+            `Ollama API error (${response.status}): ${await response.text()}`,
+        );
     }
+
+    const data = (await response.json()) as { message?: { content?: string } };
+    return stripThinkTags(data.message?.content || "");
 }

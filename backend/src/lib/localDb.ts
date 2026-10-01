@@ -159,6 +159,8 @@ function defaultsFor(table: string, input: Row): Row {
         tabular_model: DEFAULT_TABULAR_MODEL,
         claude_api_key: null,
         gemini_api_key: null,
+        // Local models the user enabled via "Scan for local models".
+        enabled_local_models: [],
         created_at: now,
         updated_at: now,
       };

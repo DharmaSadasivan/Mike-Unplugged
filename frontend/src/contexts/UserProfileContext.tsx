@@ -10,6 +10,12 @@ import React, {
 } from "react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+    isLocalModelId,
+    parseStoredLocalModels,
+    type LocalModel,
+} from "@/app/lib/localModels";
+import { saveEnabledLocalModels } from "@/app/lib/mikeApi";
 
 interface UserProfile {
     displayName: string | null;
@@ -21,6 +27,8 @@ interface UserProfile {
     tabularModel: string;
     claudeApiKey: string | null;
     geminiApiKey: string | null;
+    /** Models on this computer that the user enabled via "Scan for local models". */
+    enabledLocalModels: LocalModel[];
 }
 
 interface UserProfileContextType {
@@ -36,6 +44,7 @@ interface UserProfileContextType {
         provider: "claude" | "gemini",
         value: string | null,
     ) => Promise<boolean>;
+    updateEnabledLocalModels: (models: LocalModel[]) => Promise<boolean>;
     reloadProfile: () => Promise<void>;
     incrementMessageCredits: () => Promise<boolean>;
 }
@@ -77,6 +86,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                     tabularModel: "claude-sonnet-4-6",
                     claudeApiKey: null,
                     geminiApiKey: null,
+                    enabledLocalModels: [],
                 });
                 return;
             }
@@ -111,6 +121,9 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                         data.tabular_model || "claude-sonnet-4-6",
                     claudeApiKey: data.claude_api_key ?? null,
                     geminiApiKey: data.gemini_api_key ?? null,
+                    enabledLocalModels: parseStoredLocalModels(
+                        data.enabled_local_models,
+                    ),
                 });
 
                 // 2. Update database in background if needed
@@ -148,6 +161,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 tabularModel: "claude-sonnet-4-6",
                 claudeApiKey: null,
                 geminiApiKey: null,
+                enabledLocalModels: [],
             });
         } finally {
             setLoading(false);
@@ -274,6 +288,49 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
         [user],
     );
 
+    const updateEnabledLocalModels = useCallback(
+        async (models: LocalModel[]): Promise<boolean> => {
+            if (!user) return false;
+            try {
+                const saved = await saveEnabledLocalModels(models);
+                setProfile((prev) =>
+                    prev ? { ...prev, enabledLocalModels: saved } : null,
+                );
+
+                // Keep the tabular review model usable:
+                //  - it points at a local model that was just disabled, or
+                //  - it is still a cloud model but the user has no cloud keys.
+                const current = profile?.tabularModel ?? "";
+                const noCloudKeys =
+                    !profile?.claudeApiKey?.trim() &&
+                    !profile?.geminiApiKey?.trim();
+                const currentIsLocal = isLocalModelId(current);
+                const stillEnabled = saved.some((m) => m.id === current);
+                if (
+                    saved.length > 0 &&
+                    ((currentIsLocal && !stillEnabled) ||
+                        (!currentIsLocal && noCloudKeys))
+                ) {
+                    const next = saved[0].id;
+                    await supabase
+                        .from("user_profiles")
+                        .update({
+                            tabular_model: next,
+                            updated_at: new Date().toISOString(),
+                        })
+                        .eq("user_id", user.id);
+                    setProfile((prev) =>
+                        prev ? { ...prev, tabularModel: next } : null,
+                    );
+                }
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        [user, profile?.tabularModel, profile?.claudeApiKey, profile?.geminiApiKey],
+    );
+
     const reloadProfile = useCallback(async () => {
         if (user) {
             await loadProfile(user.id);
@@ -331,6 +388,7 @@ export function UserProfileProvider({ children }: { children: ReactNode }) {
                 updateOrganisation,
                 updateModelPreference,
                 updateApiKey,
+                updateEnabledLocalModels,
                 reloadProfile,
                 incrementMessageCredits,
             }}
