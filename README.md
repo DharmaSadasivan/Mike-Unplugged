@@ -2,7 +2,7 @@
 
 **Open-source legal AI that runs on your own computer, with any local model you already have.**
 
-Mike Unplugged is a fork of [Mike](https://mikeoss.com/), the open-source legal AI platform. It needs no cloud services, no external database and no API keys. Open the model menu, click **Scan for local models**, tick the models you want, and start working. Your documents and questions stay on your machine.
+Mike Unplugged is a fork of [mike-local](https://github.com/hamiltonmidway/mike-local) by hamiltonmidway, and derived from Will Chen's original work [Mike](https://github.com/open-legal-products/mike), the open-source legal AI platform. Mike Unplugged needs no cloud services, no external database and no API keys, and allows you to easily work with local models that you've already installed. Open the model menu, click **Scan for local models**, tick the models you want, and start working. Your documents and questions stay on your machine.
 
 Licensed AGPL-3.0, the same as upstream.
 
@@ -10,11 +10,11 @@ Licensed AGPL-3.0, the same as upstream.
 
 ## What is different in this fork
 
-Mike Unplugged uses mike-local (hamiltonmidway) as its basis. The first table shows how Mike Unplugged differs from the original Mike (willchen96). The second table shows what Mike Unplugged adds to or changes in mike-local (hamiltonmidway).
+The first table shows how Mike Unplugged differs from the original Mike by Will Chen. The second table shows how Mike Unplugged differs from the mike-local fork by hamiltonmidway, which formed the basis of Mike Unplugged.
 
-### 1. Compared with Mike (willchen96), the original ([willchen96/mike](https://github.com/willchen96/mike))
+### 1. Compared with [Mike](https://github.com/open-legal-products/mike)
 
-| Area | Mike (willchen96) | Mike Unplugged |
+| Area | Mike | Mike Unplugged |
 |---|---|---|
 | Database and login | Supabase Postgres and Supabase Auth | One JSON file on your computer (`backend/data/local-db.json`) and a single local user. No database server. |
 | Document storage | Cloudflare R2-compatible object storage (RustFS in Docker) | Folder on your computer (`backend/data/storage/`). |
@@ -26,9 +26,9 @@ Mike Unplugged uses mike-local (hamiltonmidway) as its basis. The first table sh
 | Error reporting | Sends error reports to the Mike project's Sentry by default (you can turn it off) | No error reporting to any outside service |
 | Other features | CourtListener case-law research, Microsoft Word add-in, MCP connectors, Google Drive | Not included |
 
-### 2. Compared with mike-local (hamiltonmidway), the basis of this fork ([hamiltonmidway/mike-local](https://github.com/hamiltonmidway/mike-local))
+### 2. Compared with [mike-local](https://github.com/hamiltonmidway/mike-local)
 
-| Area | mike-local (hamiltonmidway) | Mike Unplugged |
+| Area | mike-local | Mike Unplugged |
 |---|---|---|
 | Local model list | Fixed in the source code: `gemma4:latest`, `gemma3:4b`, `llama3.2:3b`. Other models need a code change. | No fixed list. Click **Scan for local models**, tick the models you want, click **Enable**. |
 | Where you find local models | Model menu only | Model menu (**Scan for local models…**) and **Settings → Models & API Keys → Scan this computer** |
